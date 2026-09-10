@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#102f32">
+<title>Stillwater — a living pond</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#102f32;color:#f2f0df;font-family:Georgia,'Times New Roman',serif}canvas{display:block;width:100%;height:100%;touch-action:none}.title{position:fixed;left:6vw;top:7vh;pointer-events:none;text-shadow:0 2px 20px #082b32}.eyebrow{font:10px/1.4 system-ui,sans-serif;letter-spacing:.32em;text-transform:uppercase;opacity:.7}.title h1{font-size:clamp(38px,6vw,76px);font-weight:400;letter-spacing:-.045em;line-height:1;margin:16px 0}.title p{font-size:15px;font-style:italic;opacity:.7}.footer{position:fixed;bottom:5vh;left:6vw;right:6vw;display:flex;justify-content:space-between;align-items:center;font:10px system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#eeeeddad;pointer-events:none}button{pointer-events:auto;border:1px solid #ffffff40;border-radius:50%;background:#143b3b40;color:#f2f0df;width:42px;height:42px;cursor:pointer;font-size:14px;backdrop-filter:blur(10px)}button:hover{background:#ffffff20}button:focus-visible{outline:2px solid white;outline-offset:5px}#error{display:none;position:fixed;inset:0;place-content:center;padding:30px;text-align:center;background:#102f32} @media(max-width:500px){.footer{font-size:8px;letter-spacing:.1em}.title{top:5vh}}
+</style>
+</head>
+<body>
+<canvas id="water" aria-label="Animated overhead view of a turquoise pond. Touch or click the water to create ripples."></canvas>
+<header class="title"><div class="eyebrow">A moment outdoors / 001</div><h1>Stillwater</h1><p>Let the world ripple away.</p></header>
+<footer class="footer"><span>Touch the water &nbsp; · &nbsp; Stay a while</span><button id="pause" aria-label="Pause animation" title="Pause animation">Ⅱ</button></footer>
+<div id="error" role="alert">This pond needs a browser with WebGL enabled.</div>
+<script>
+'use strict';
+const canvas=document.getElementById('water');
+const gl=canvas.getContext('webgl',{alpha:false,antialias:false,powerPreference:'low-power'});
+const vertex=`attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}`;
+const fragment=`
+precision highp float;
+uniform vec2 resolution;
+uniform float time;
+uniform vec3 touches[8];
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
+float fbm(vec2 p){float n=0.,a=.5;for(int i=0;i<5;i++){n+=a*noise(p);p=mat2(.8,-.6,.6,.8)*p*2.04+3.1;a*=.5;}return n;}
+float height(vec2 p){
+ float h=sin(p.x*15.+p.y*8.+time*.85)*.025;
+ h+=sin(p.x*8.-p.y*19.-time*.65)*.020;
+ h+=sin(p.x*29.+p.y*23.+time*1.1)*.008;
+ h+=(noise(p*12.+vec2(time*.18,-time*.1))-.5)*.045;
+ for(int i=0;i<8;i++){float age=time-touches[i].z;float d=length(p-touches[i].xy);float ring=d-age*.30;h+=sin(ring*65.)*exp(-ring*ring*110.)*exp(-age*.65)*.026*step(0.,age);}
+ return h;
+}
+void main(){
+ vec2 uv=gl_FragCoord.xy/resolution;
+ vec2 p=(gl_FragCoord.xy-.5*resolution)/min(resolution.x,resolution.y);
+ float h=height(p);float e=.003;
+ vec2 slope=vec2(height(p+vec2(e,0))-height(p-vec2(e,0)),height(p+vec2(0,e))-height(p-vec2(0,e)))/(2.*e);
+ vec3 normal=normalize(vec3(-slope*.68,1.));
+ vec2 q=p+slope*.025;
+ // Irregular sand shelves surround an open, deeper center.
+ float bank=q.x*.59-q.y*.80;
+ float edge=.62+.055*sin(q.y*8.)+.045*fbm(q*6.);
+ float depth=(1.-smoothstep(edge-.48,edge+.04,bank));
+ float sand=fbm(q*35.);
+ vec3 bed=mix(vec3(.40,.43,.28),vec3(.68,.64,.42),sand);
+ // Pebbles remain visible through the shallows.
+ vec2 cell=floor(q*48.),local=fract(q*48.)-.5;
+ float stone=(1.-smoothstep(.15,.22,length(local+vec2(hash(cell),hash(cell+7.))*.25)));
+ bed=mix(bed,vec3(.22,.29,.23)+hash(cell)*.16,stone*.55);
+ vec3 col=mix(bed,vec3(.025,.24,.245),depth*.91);
+ col=mix(col,vec3(.025,.15,.19),smoothstep(.35,1.3,length(q-vec2(.1,-.2)))*depth*.3);
+ // Intersecting refracted wave ridges produce moving sunlight caustics.
+ vec2 c=q*23.+slope*.6;
+ float ca=abs(sin(c.x+sin(c.y*.82+time*.48))+sin(c.y-time*.61+sin(c.x*.65)));
+ float caustic=pow(max(0.,1.-ca*.65),14.);
+ col+=vec3(.36,.49,.29)*caustic*(.10+.32*(1.-depth));
+ float cloud=fbm(p*2.+slope*.24+vec2(time*.018,time*.009));
+ float reflection=smoothstep(.40,.75,cloud);
+ col=mix(col,vec3(.51,.68,.67),reflection*.25*depth);
+ vec3 light=normalize(vec3(-.48,.65,1.5));
+ float spec=pow(max(dot(normal,light),0.),95.);
+ float shimmer=pow(max(dot(normal,light),0.),16.);
+ col+=vec3(1.,.91,.68)*spec*.72+vec3(.16,.25,.22)*shimmer*.17;
+ float shoreline=smoothstep(edge-.015,edge+.025,bank);
+ vec3 land=vec3(.27,.31,.18)+sand*vec3(.18,.16,.10);
+ col=mix(col,land,shoreline);
+ col+=vec3(.28,.30,.17)*exp(-pow((bank-edge+.014)*100.,2.))*.22;
+ // Soft foliage shadows drift over the bottom-right bank.
+ float leaves=fbm(p*7.+vec2(sin(time*.22)*.05,0.));
+ float shade=smoothstep(.44,.64,leaves)*smoothstep(.05,.75,bank);
+ col*=1.-shade*.48;
+ float vignette=1.-.19*dot(uv-.5,uv-.5)*2.;
+ col*=vignette;
+ col=pow(max(col,0.),vec3(.88));
+ col+=(hash(gl_FragCoord.xy)-.5)/255.;
+ gl_FragColor=vec4(col,1.);
+}`;
+function start(){
+ if(!gl)throw Error('WebGL unavailable');
+ function shader(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;}
+ const program=gl.createProgram();gl.attachShader(program,shader(gl.VERTEX_SHADER,vertex));gl.attachShader(program,shader(gl.FRAGMENT_SHADER,fragment));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));gl.useProgram(program);
+ const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+ const a=gl.getAttribLocation(program,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+ const res=gl.getUniformLocation(program,'resolution'),t=gl.getUniformLocation(program,'time'),touch=gl.getUniformLocation(program,'touches[0]');
+ const drops=new Float32Array(24);for(let i=0;i<8;i++)drops[i*3+2]=-100;
+ let next=0,elapsed=0,last=performance.now(),paused=matchMedia('(prefers-reduced-motion: reduce)').matches,frame;
+ function resize(){const d=Math.min(devicePixelRatio||1,1.5);canvas.width=Math.round(innerWidth*d);canvas.height=Math.round(innerHeight*d);gl.viewport(0,0,canvas.width,canvas.height);draw();}
+ function draw(){gl.uniform2f(res,canvas.width,canvas.height);gl.uniform1f(t,elapsed);gl.uniform3fv(touch,drops);gl.drawArrays(gl.TRIANGLES,0,6);}
+ function tick(now){if(!paused&&!document.hidden)elapsed+=Math.min((now-last)/1000,.05);last=now;if(!paused)draw();frame=requestAnimationFrame(tick);}
+ const button=document.getElementById('pause');
+ function label(){button.textContent=paused?'▶':'Ⅱ';button.setAttribute('aria-label',paused?'Resume animation':'Pause animation');button.title=paused?'Resume animation':'Pause animation';}
+ button.addEventListener('click',()=>{paused=!paused;label();});label();
+ canvas.addEventListener('pointerdown',event=>{const r=canvas.getBoundingClientRect(),scale=Math.min(r.width,r.height);drops[next*3]=(event.clientX-r.left-r.width/2)/scale;drops[next*3+1]=(r.height/2-(event.clientY-r.top))/scale;drops[next*3+2]=elapsed;next=(next+1)%8;draw();});
+ window.addEventListener('resize',resize);canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();cancelAnimationFrame(frame);document.getElementById('error').style.display='grid';});canvas.addEventListener('webglcontextrestored',()=>location.reload());resize();requestAnimationFrame(tick);
+}
+try{start();}catch(error){console.error(error);document.getElementById('error').style.display='grid';}
+</script>
+</body>
+</html>

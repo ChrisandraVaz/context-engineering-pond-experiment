@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Context Engineering Lake Test</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #fff;
+      color: #111;
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.45;
+    }
+    main { width: min(1180px, calc(100% - 40px)); margin: 48px auto 72px; }
+    h1 { margin: 0 0 8px; font-size: clamp(30px, 5vw, 48px); }
+    .meta { margin: 0 0 30px; color: #555; }
+    .runs { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #bbb; }
+    article { padding: 18px; border-right: 1px solid #bbb; }
+    article:last-child { border-right: 0; }
+    h2 { margin: 0 0 6px; font-size: 20px; }
+    .context { min-height: 42px; margin: 0 0 14px; color: #555; font-size: 14px; }
+    img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid #aaa; }
+    .finding { min-height: 88px; margin: 14px 0; }
+    a { color: #111; font-weight: 700; text-underline-offset: 3px; }
+    .conclusion { max-width: 780px; margin-top: 34px; }
+    .files { margin-top: 28px; padding-top: 20px; border-top: 1px solid #bbb; }
+    @media (max-width: 760px) {
+      .runs { grid-template-columns: 1fr; }
+      article { border-right: 0; border-bottom: 1px solid #bbb; }
+      article:last-child { border-bottom: 0; }
+      .context, .finding { min-height: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Context Engineering Lake Test</h1>
+    <p class="meta">Three clean model runs completed September 10, 2026 using the same basic task.</p>
+
+    <section class="runs" aria-label="Comparison of three context tests">
+      <article>
+        <h2>Run 1</h2>
+        <p class="context">Basic task only</p>
+        <img src="screenshots/run-1.png" alt="Run 1 showing dark realistic pond water and a shoreline">
+        <p class="finding">The model invented dark, realistic water, bright floor reflections, and a shoreline.</p>
+        <a href="run-1.html">Open interactive Run 1</a>
+      </article>
+
+      <article>
+        <h2>Run 2</h2>
+        <p class="context">Visual and interaction context added</p>
+        <img src="screenshots/run-2.png" alt="Run 2 showing bright illustrated water and drifting leaves">
+        <p class="finding">The added visual direction produced brighter illustrated water, broad reflections, and drifting leaves.</p>
+        <a href="run-2.html">Open interactive Run 2</a>
+      </article>
+
+      <article>
+        <h2>Run 3</h2>
+        <p class="context">Visual and technical context added</p>
+        <img src="screenshots/run-3.png" alt="Run 3 showing calm illustrated water and drifting leaves">
+        <p class="finding">The appearance stayed close to Run 2, while the code followed the requested WebGL structure more closely.</p>
+        <a href="run-3.html">Open interactive Run 3</a>
+      </article>
+    </section>
+
+    <section class="conclusion">
+      <h2>Main finding</h2>
+      <p>Visual context caused the clearest visible change. Technical context had a smaller effect on appearance but improved compliance with the requested implementation.</p>
+    </section>
+
+    <p class="files"><a href="Log-1-Context-Engineering.docx">Download the experiment document</a></p>
+  </main>
+</body>
+</html>
