@@ -1,123 +1,17 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#58a99e">
-<title>Stillwater — a quiet moment</title>
-<style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#58a99e;color:white}canvas{display:block;width:100%;height:100%;touch-action:none}header{position:fixed;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none;text-shadow:0 2px 24px #246b6a70}h1{font:400 clamp(52px,9vw,112px)/1.1 Georgia,serif;letter-spacing:-.045em;margin:0}header p{font:11px/1.6 system-ui,sans-serif;letter-spacing:.26em;text-transform:uppercase;margin:23px 0 0;opacity:.9}footer{position:fixed;bottom:max(30px,env(safe-area-inset-bottom));left:20px;right:20px;text-align:center;font:11px/1.5 system-ui,sans-serif;letter-spacing:.13em;pointer-events:none;text-shadow:0 1px 8px #245f65}button{position:fixed;right:24px;top:24px;border:1px solid #ffffff60;background:#367f7925;color:white;border-radius:50%;width:36px;height:36px;cursor:pointer}button:focus-visible{outline:2px solid white;outline-offset:4px}#error{display:none;position:fixed;bottom:90px;left:20px;right:20px;text-align:center;font:14px system-ui}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lake Test Run 2</title>
+  <style>
+    *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:Arial,Helvetica,sans-serif}
+    nav{height:48px;display:flex;align-items:center;gap:10px;padding:0 18px;background:#fff;color:#111;border-bottom:1px solid #aaa;font-size:14px}
+    nav a{color:#111;text-underline-offset:3px} nav span{color:#777} iframe{display:block;width:100%;height:calc(100% - 48px);border:0}
+  </style>
 </head>
 <body>
-<canvas id="water" aria-label="A calm blue-green pond seen from above. Click or tap to make ripples."></canvas>
-<header><h1>Stillwater</h1><p>A quiet moment</p></header>
-<footer>Touch the water. Stay a while.</footer>
-<button id="pause" aria-label="Pause animation" title="Pause animation">Ⅱ</button>
-<p id="error" role="alert">Please enable WebGL to see the animated pond.</p>
-<script>
-'use strict';
-const canvas=document.querySelector('canvas');
-const gl=canvas.getContext('webgl',{alpha:false,antialias:false,powerPreference:'low-power'});
-const vertex=`attribute vec2 position;void main(){gl_Position=vec4(position,0.,1.);}`;
-const fragment=`
-precision highp float;
-uniform vec2 resolution;
-uniform float time;
-uniform vec3 drops[12];
-uniform vec3 cursor;
-float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
-float softNoise(vec2 p){return noise(p)*.65+noise(p*2.03+7.1)*.25+noise(p*4.01+2.3)*.1;}
-mat2 rotate(float a){return mat2(cos(a),-sin(a),sin(a),cos(a));}
-void main(){
- vec2 uv=gl_FragCoord.xy/resolution;
- float aspect=resolution.x/resolution.y;
- vec2 p=(gl_FragCoord.xy-.5*resolution)/min(resolution.x,resolution.y);
- vec2 drift=vec2(time*.008,-time*.005);
- vec2 bend=vec2(sin(p.y*8.+time*.23)+sin(p.x*5.-time*.17),cos(p.x*7.+time*.19))*.009;
- vec2 ripple=vec2(0.);float rings=0.;
- // Finite, smoothly tapered wave packets: exactly five seconds per touch.
- for(int i=0;i<12;i++){
-  float age=time-drops[i].z;
-  if(age>=0.&&age<5.){
-   vec2 delta=p-drops[i].xy;float d=length(delta);
-   float front=d-age*.125;
-   float envelope=exp(-pow(front/.052,2.))*smoothstep(0.,.24,age)*(1.-smoothstep(.8,5.,age));
-   float wave=sin(front*155.);
-   ripple+=delta/max(d,.001)*wave*envelope*.013;
-   rings+=cos(front*155.)*envelope*.065;
-  }
- }
- vec2 delta=p-cursor.xy;float dist=length(delta);
- float wobble=sin(dist*70.-time*2.)*exp(-dist*dist*95.)*cursor.z;
- ripple+=delta/max(dist,.001)*wobble*.003;
- vec2 q=p+bend+ripple;
- float edge=smoothstep(.1,.75,length((uv-.5)*vec2(1.,.94)));
- float depth=softNoise(q*2.+drift);
- vec3 col=mix(vec3(.28,.66,.62),vec3(.36,.73,.66),depth);
- col=mix(col,vec3(.16,.47,.49),edge*.42);
- // Broad, milky cloud reflections, broken gently by the surface.
- vec2 sky=q*2.4+vec2(time*.006,time*.003);
- float cloud=softNoise(sky+vec2(3.7,8.2));
- float clouds=smoothstep(.43,.69,cloud);
- col=mix(col,vec3(.84,.92,.84),clouds*.54);
- // Faint refracted sunlight, deliberately below the reflections.
- vec2 c=q*18.;
- float a=sin(c.x+sin(c.y*.72+time*.14)*1.3+time*.12);
- float b=sin(c.y+sin(c.x*.67-time*.11)*1.2-time*.1);
- float caustic=pow(max(0.,1.-abs(a+b)*.55),20.);
- col+=vec3(.13,.17,.10)*caustic*.24*(1.-clouds*.65);
- float lines=pow(.5+.5*sin(q.y*100.+sin(q.x*22.+time*.2)*1.3+time*.4),16.);
- col+=vec3(.035,.06,.05)*lines*.24;
- col+=vec3(.7,.88,.80)*rings;
- // A handful of small floating leaves with a stem and a fine central vein.
- for(int i=0;i<6;i++){
-  float fi=float(i);vec2 seed=vec2(fi+4.,fi*2.+8.);
-  vec2 loc=vec2(.08+.84*hash(seed),.09+.82*hash(seed+12.));
-  loc+=vec2(sin(time*.025+fi*2.1)*.019,cos(time*.021+fi)*.016);
-  vec2 leaf=(uv-loc)*resolution/min(resolution.x,resolution.y);
-  leaf=rotate(fi*2.4+sin(time*.06+fi)*.12)*leaf;
-  float size=.012+hash(seed+6.)*.005;
-  vec2 shadow=(leaf-vec2(.004,-.005))/vec2(size,size*.43);
-  col*=1.-exp(-dot(shadow,shadow)*1.5)*.13;
-  vec2 l=leaf/vec2(size,size*.43);
-  float shape=abs(l.y)+pow(abs(l.x),1.6);
-  float mask=1.-smoothstep(.90,1.04,shape);
-  vec3 leafColor=mix(vec3(.51,.60,.25),vec3(.80,.72,.37),hash(seed+9.));
-  leafColor+=vec3(.09,.08,.025)*smoothstep(-.15,.4,l.y);
-  col=mix(col,leafColor,mask);
-  float vein=(1.-smoothstep(.022,.07,abs(l.y)))*(1.-smoothstep(.65,.9,abs(l.x)));
-  col=mix(col,vec3(.89,.83,.50),vein*mask*.5);
-  float stem=(1.-smoothstep(.0005,.0011,abs(leaf.y)))*smoothstep(size*.72,size*.83,leaf.x)*(1.-smoothstep(size*1.25,size*1.4,leaf.x));
-  col=mix(col,leafColor*.72,stem);
- }
- gl_FragColor=vec4(col,1.);
-}`;
-try{
- if(!gl)throw new Error('WebGL unavailable');
- function compile(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
- const program=gl.createProgram();gl.attachShader(program,compile(gl.VERTEX_SHADER,vertex));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,fragment));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program));gl.useProgram(program);
- const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
- const position=gl.getAttribLocation(program,'position');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
- const uniforms={};for(const name of ['resolution','time','drops[0]','cursor'])uniforms[name]=gl.getUniformLocation(program,name);
- const drops=new Float32Array(36);for(let i=0;i<12;i++)drops[i*3+2]=-10;
- let time=0,last=performance.now(),next=0,frame,paused=matchMedia('(prefers-reduced-motion: reduce)').matches;
- let pointer=[0,0],strength=0;
- function draw(){gl.uniform2f(uniforms.resolution,canvas.width,canvas.height);gl.uniform1f(uniforms.time,time);gl.uniform3fv(uniforms['drops[0]'],drops);gl.uniform3f(uniforms.cursor,pointer[0],pointer[1],strength);gl.drawArrays(gl.TRIANGLES,0,6);}
- function resize(){const d=Math.min(devicePixelRatio||1,1.75);canvas.width=Math.round(innerWidth*d);canvas.height=Math.round(innerHeight*d);gl.viewport(0,0,canvas.width,canvas.height);draw();}
- function coords(event){const r=canvas.getBoundingClientRect(),s=Math.min(r.width,r.height);return [(event.clientX-r.left-r.width*.5)/s,(r.height*.5-event.clientY+r.top)/s];}
- canvas.addEventListener('pointerdown',e=>{const p=coords(e);drops.set([p[0],p[1],time],next*3);next=(next+1)%12;draw();});
- canvas.addEventListener('pointermove',e=>{pointer=coords(e);strength=Math.min(1,strength+.18);});
- const button=document.getElementById('pause');
- function label(){button.textContent=paused?'▶':'Ⅱ';button.title=paused?'Resume animation':'Pause animation';button.setAttribute('aria-label',button.title);}
- button.addEventListener('click',()=>{paused=!paused;label();});label();
- function tick(now){const dt=Math.min((now-last)/1000,.05);last=now;if(!paused&&!document.hidden){time+=dt;strength*=Math.exp(-dt*2.5);draw();}frame=requestAnimationFrame(tick);}
- addEventListener('resize',resize);
- canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();cancelAnimationFrame(frame);document.getElementById('error').style.display='block';});
- canvas.addEventListener('webglcontextrestored',()=>location.reload());
- resize();frame=requestAnimationFrame(tick);
-}catch(error){document.getElementById('error').style.display='block';console.error(error);}
-</script>
+  <nav aria-label="Experiment runs"><a href="index.html">Overview</a> <span>/</span> <a href="run-1.html">Run 1</a> <span>/</span> <strong aria-current="page">Run 2</strong> <span>/</span> <a href="run-3.html">Run 3</a></nav>
+  <iframe src="ponds/run-2-original.html" title="Interactive pond from Run 2"></iframe>
 </body>
 </html>
